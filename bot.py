@@ -51,30 +51,36 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def receive_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
 
-    if message.document:
-        file_id = message.document.file_id
-        file_name = message.document.file_name or "File"
+    if not message.document:
+        return
 
-        files = load_files()
+    file_id = message.document.file_id
+    file_name = message.document.file_name or "File"
 
-        file_key = str(message.message_id)
+    files = load_files()
 
-        files[file_key] = {
-            "file_id": file_id,
-            "caption": f"📄 {file_name}"
-        }
+    file_key = str(message.message_id)
 
-        save_files(files)
+    files[file_key] = {
+        "file_id": file_id,
+        "caption": f"📄 {file_name}"
+    }
 
-        me = await context.bot.get_me()
+    save_files(files)
 
-        link = f"https://t.me/{me.username}?start={file_key}"
+    me = await context.bot.get_me()
 
-        await message.reply_text(
-            f"✅ File saved!\n\n"
-            f"🔗 Your file link:\n{link}\n\n"
-            f"Now put this link into Vplink."
-        )
+    link = f"https://t.me/{me.username}?start={file_key}"
+
+    await message.reply_text(
+        f"✅ File saved!\n\n"
+        f"🔗 Your file link:\n{link}\n\n"
+        f"👉 Put this link into Vplink."
+    )
+
+
+async def health(update, context):
+    return "OK"
 
 
 def main():
@@ -83,6 +89,12 @@ def main():
     if not token:
         raise RuntimeError("BOT_TOKEN is missing")
 
+    port = int(os.getenv("PORT", "10000"))
+    render_url = os.getenv("RENDER_EXTERNAL_URL")
+
+    if not render_url:
+        raise RuntimeError("RENDER_EXTERNAL_URL is missing")
+
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -90,9 +102,17 @@ def main():
         MessageHandler(filters.Document.ALL, receive_file)
     )
 
-    print("PY MULTIVERSE STORE BOT started...")
+    webhook_url = f"{render_url}/{token}"
 
-    app.run_polling()
+    print("PY MULTIVERSE STORE starting...")
+    print("Webhook URL:", webhook_url)
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=token,
+        webhook_url=webhook_url,
+    )
 
 
 if __name__ == "__main__":
